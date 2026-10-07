@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.log
+*.local
+.env*
+!.env.example
+supabase/.temp/
+/package-lock.json
+.DS_Store
+Thumbs.db
