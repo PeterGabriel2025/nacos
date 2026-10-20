@@ -15,6 +15,16 @@ Copy `.env.example` to `.env.local`, set the Supabase project URL and publishabl
 
 The public app requests only approved, published chapters, published leadership terms/executives, and published non-document media metadata. It never requests chapter contacts, applications, profiles, invitation tokens, PDFs, or audit records. Published archive photos are loaded using one-hour signed links from the private media bucket.
 
+## Deploy to Vercel
+
+Create a Vercel project for this repository and set **Root Directory** to `public`. Vercel detects Vite and uses `npm run build` with `dist` as the output directory. The included `vercel.json` sends app routes to the SPA entry point so direct links and refreshes work.
+
+Set these Vercel environment variables for the environments you deploy:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_REGISTRATION_PORTAL_URL` — deployed registration app URL
+
 ## Validate
 
 ```sh
