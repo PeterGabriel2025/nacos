@@ -17,14 +17,14 @@ Create `.env.local` from `.env.example` and set the same Supabase project URL an
 
 ## Deploy to Vercel
 
-Create a Vercel project for this repository and set **Root Directory** to `registration`. Vercel detects Vite and uses `npm run build` with `dist` as the output directory. The included `vercel.json` sends invitation routes such as `/invite/<token>` to the SPA entry point so direct links and refreshes work.
+The root `vercel.json` routes this Vite service to `register.nacosoutheast.org.ng`, separate from the public website. Invitation URLs use `/invite/<token>` and work on direct visits and refreshes. The service must be reachable by invitees; access to registration is gated by the validated, expiring, single-use invitation token, not by Vercel's internal-only service setting.
 
 Set these Vercel environment variables for the environments you deploy:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-The admin creates random, expiring, single-use invitation links. A link is checked against Supabase before showing the registration form. Submissions are validated again by the database function, saved as pending applications, and require administrator approval before publication. The invitation's email is locked to the invited recipient. Logo selection is still preview-only and no files are uploaded.
+The admin creates random, expiring, single-use invitation links. A link is checked against Supabase before showing the registration form. Submissions are validated again by the database function, saved as pending applications, and require administrator approval before publication. The invitation's email is locked to the invited recipient. The logo picker is preview-only; registration does not upload files. Media uploads are handled in the admin app and require the `media.manage` permission.
 
 ## Preview
 

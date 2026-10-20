@@ -96,7 +96,7 @@ Deno.serve(async (request: Request) => {
     email.trim().toLowerCase(),
     {
       data: { full_name: name.trim() },
-      redirectTo: new URL('/set-password', appUrl).toString(),
+      redirectTo: new URL('/admin/set-password', appUrl).toString(),
     },
   )
 

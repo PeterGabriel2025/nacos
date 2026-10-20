@@ -17,7 +17,7 @@ The public app requests only approved, published chapters, published leadership 
 
 ## Deploy to Vercel
 
-Create a Vercel project for this repository and set **Root Directory** to `public`. Vercel detects Vite and uses `npm run build` with `dist` as the output directory. The included `vercel.json` sends app routes to the SPA entry point so direct links and refreshes work.
+The root `vercel.json` routes this Vite service to the main public host, `www.nacosoutheast.org.ng`. Admin is available at `/admin/` on that host, while registration invitations use the separate `register.nacosoutheast.org.ng` host.
 
 Set these Vercel environment variables for the environments you deploy:
 
