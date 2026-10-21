@@ -20,7 +20,7 @@ function Brand() {
       <span className="brand-copy">
         <strong>NACOS</strong>
         <span>SOUTH EAST</span>
-        <small>Networking the world</small>
+        <span>CHAPTERS</span>
       </span>
     </Link>
   )
