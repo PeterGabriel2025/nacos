@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import nacosSeal from '../assets/nacos-seal.png'
 import { Icon } from './Icon'
 
 const registrationPortalUrl = import.meta.env.VITE_REGISTRATION_PORTAL_URL
@@ -15,7 +16,7 @@ const navItems = [
 function Brand() {
   return (
     <Link className="brand" to="/" aria-label="NACOS South East home">
-      <span className="brand-seal" aria-hidden="true">NACOS</span>
+      <img className="brand-seal" src={nacosSeal} alt="" aria-hidden="true" />
       <span className="brand-copy">
         <strong>NACOS</strong>
         <span>SOUTH EAST</span>
