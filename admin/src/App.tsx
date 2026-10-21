@@ -30,6 +30,7 @@ type Executive = {
   termId: string
   state: string
   is_published: boolean
+  photograph_path: string | null
 }
 type Media = {
   id: string
@@ -156,7 +157,7 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
           ? client.from('leadership_terms').select('id, title, start_year, end_year, is_published').order('start_year', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
         hasPermission('leadership.manage')
-          ? client.from('executives').select('id, full_name, position, institution, state, term_id, is_published, leadership_terms(title, start_year, end_year)').order('display_order')
+          ? client.from('executives').select('id, full_name, position, institution, state, term_id, photograph_path, is_published, leadership_terms(title, start_year, end_year)').order('display_order')
           : Promise.resolve({ data: [], error: null }),
         hasPermission('media.manage')
           ? client.from('media_items').select('id, title, category, year, file_path, storage_bucket, mime_type, is_published').order('year', { ascending: false })
@@ -208,6 +209,7 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
           termId: row.term_id,
           state: row.state,
           is_published: row.is_published,
+          photograph_path: row.photograph_path,
         }
       }))
       setMedia((mediaResult.data ?? []) as Media[])
@@ -366,6 +368,8 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
       { label: 'Institution', key: 'institution' },
       { label: 'Leadership term', key: 'term', options: terms.map((term) => `${term.title} (${term.start_year}–${term.end_year})`), required: true },
       { label: 'State', key: 'state', options: ['Abia', 'Anambra', 'Ebonyi', 'Enugu', 'Imo'] },
+      { label: executive?.photograph_path ? 'Replace photo (optional)' : 'Executive photo (optional)', key: 'photo', type: 'file', required: false, accept: 'image/jpeg,image/png,image/webp' },
+      ...(executive?.photograph_path ? [{ label: 'Remove current photo', key: 'removePhoto', type: 'checkbox', required: false }] : []),
       { label: 'Publish profile on public site', key: 'isPublished', type: 'checkbox', required: false },
     ]
     setModal({
@@ -377,11 +381,26 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
         institution: executive.institution,
         term: executiveTerm ? `${executiveTerm.title} (${executiveTerm.start_year}–${executiveTerm.end_year})` : '',
         state: executive.state,
+        removePhoto: 'false',
         isPublished: String(executive.is_published),
       } : { isPublished: 'false' },
-      onSave: async (values) => {
+      onSave: async (values, selectedFile) => {
         const term = terms.find((item) => `${item.title} (${item.start_year}–${item.end_year})` === values.term)
         if (!term) throw new Error('Select a valid leadership term.')
+        if (selectedFile && values.removePhoto === 'true') throw new Error('Choose a replacement photo or remove the existing photo, not both.')
+        let uploadedPath: string | null = null
+        if (selectedFile) {
+          const extension = acceptedImageTypes[selectedFile.type]
+          if (!extension) throw new Error('Executive photos must be JPEG, PNG, or WebP files.')
+          if (selectedFile.size > 5 * 1024 * 1024) throw new Error('The selected photo exceeds the 5 MB limit.')
+          const objectPath = `executive-photos/${user.id}/${crypto.randomUUID()}.${extension}`
+          const { data: uploaded, error: uploadError } = await client.storage.from(mediaBucket).upload(objectPath, selectedFile, {
+            contentType: selectedFile.type,
+            upsert: false,
+          })
+          if (uploadError) throw new Error(`Photo upload failed: ${uploadError.message}`)
+          uploadedPath = uploaded.path
+        }
         const record = {
           full_name: values.name,
           position: values.position,
@@ -389,11 +408,23 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
           term_id: term.id,
           state: values.state,
           is_published: values.isPublished === 'true',
+          ...(uploadedPath ? { photograph_path: uploadedPath } : {}),
+          ...(values.removePhoto === 'true' ? { photograph_path: null } : {}),
         }
         const result = executive
           ? await client.from('executives').update(record).eq('id', executive.id)
           : await client.from('executives').insert(record)
-        if (result.error) throw new Error(result.error.message)
+        if (result.error) {
+          if (uploadedPath) {
+            const cleanup = await client.storage.from(mediaBucket).remove([uploadedPath])
+            if (cleanup.error) throw new Error(`Could not save executive profile (${result.error.message}); uploaded photo cleanup also failed (${cleanup.error.message}). Contact the system administrator.`)
+          }
+          throw new Error(result.error.message)
+        }
+        if ((uploadedPath || values.removePhoto === 'true') && executive?.photograph_path) {
+          const cleanup = await client.storage.from(mediaBucket).remove([executive.photograph_path])
+          if (cleanup.error) notify(`Executive profile saved, but the replaced photo could not be removed: ${cleanup.error.message}`)
+        }
         notify('Executive record saved to Supabase.')
         await loadRecords()
       },
@@ -622,7 +653,7 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
               canManage={hasPermission(active === 'Applications' ? 'applications.review' : 'chapters.manage')}
             />
           )}
-          {active === 'Leadership' && <LeadershipManagement executives={executives} terms={terms} add={() => openExecutiveForm()} addTerm={openLeadershipTermForm} edit={openExecutiveForm} canManage={hasPermission('leadership.manage')} />}
+          {active === 'Leadership' && <LeadershipManagement client={client} executives={executives} terms={terms} add={() => openExecutiveForm()} addTerm={openLeadershipTermForm} edit={openExecutiveForm} canManage={hasPermission('leadership.manage')} />}
           {active === 'Media archive' && <MediaManagement client={client} media={media} add={() => openMediaForm()} edit={openMediaForm} remove={(id) => { void deleteMedia(id) }} canManage={hasPermission('media.manage')} />}
           {active === 'Invitations' && hasPermission('invitations.manage') && <Invitations chapters={chapters} onCreate={createChapterInvite} />}
           {active === 'Team & access' && <TeamAccess
@@ -761,7 +792,7 @@ function ChapterTable({ chapters, compact = false, onReview, updateStatus, remov
   )
 }
 
-function LeadershipManagement({ executives, terms, add, addTerm, edit, canManage }: { executives: Executive[]; terms: LeadershipTerm[]; add: () => void; addTerm: () => void; edit: (item: Executive) => void; canManage: boolean }) {
+function LeadershipManagement({ client, executives, terms, add, addTerm, edit, canManage }: { client: AuthenticatedAdmin['client']; executives: Executive[]; terms: LeadershipTerm[]; add: () => void; addTerm: () => void; edit: (item: Executive) => void; canManage: boolean }) {
   return (
     <>
       <section className="panel table-panel">
@@ -773,12 +804,29 @@ function LeadershipManagement({ executives, terms, add, addTerm, edit, canManage
       <section className="panel table-panel leadership-executives">
         <div className="panel-heading"><div><h2>Executive profiles</h2><p>Profiles grouped by zonal leadership term</p></div>{canManage && <button className="button primary small" onClick={add} disabled={!terms.length}>＋ Add executive</button>}</div>
         <div className="table-scroll"><table className="data-table"><thead><tr><th>EXECUTIVE</th><th>POSITION</th><th>INSTITUTION</th><th>TERM</th><th>STATE</th><th /></tr></thead><tbody>
-          {executives.map((item) => <tr key={item.id}><td><div className="chapter-cell"><span className="person-avatar">{item.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span><strong>{item.name}</strong></div></td><td>{item.position}</td><td>{item.institution}</td><td><span className="term-tag">{item.term}</span></td><td>{item.state}</td><td>{canManage && <button className="icon-button" onClick={() => edit(item)} aria-label={`Edit ${item.name}`}>•••</button>}</td></tr>)}
+          {executives.map((item) => <tr key={item.id}><td><div className="chapter-cell">{item.photograph_path ? <ExecutivePhotoPreview client={client} path={item.photograph_path} name={item.name} /> : <span className="person-avatar">{item.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span>}<strong>{item.name}</strong></div></td><td>{item.position}</td><td>{item.institution}</td><td><span className="term-tag">{item.term}</span></td><td>{item.state}</td><td>{canManage && <button className="icon-button" onClick={() => edit(item)} aria-label={`Edit ${item.name}`}>•••</button>}</td></tr>)}
         </tbody></table></div>
         {!executives.length && <div className="empty-state"><strong>No executive profiles yet</strong><span>Add an executive profile and assign it to a leadership term.</span></div>}
       </section>
     </>
   )
+}
+
+function ExecutivePhotoPreview({ client, path, name }: { client: AuthenticatedAdmin['client']; path: string; name: string }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    let active = true
+    void clientSignedUrl(client, mediaBucket, path).then((value) => {
+      if (active) setUrl(value)
+    }).catch((error: unknown) => {
+      if (active) console.error('Could not load executive photo preview.', error)
+    })
+    return () => { active = false }
+  }, [client, path])
+
+  return url
+    ? <img className="person-avatar person-avatar-photo" src={url} alt={`${name} photo`} />
+    : <span className="person-avatar">{name.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span>
 }
 
 function MediaManagement({ client, media, add, edit, remove, canManage }: { client: AuthenticatedAdmin['client']; media: Media[]; add: () => void; edit: (item: Media) => void; remove: (id: string) => void; canManage: boolean }) {

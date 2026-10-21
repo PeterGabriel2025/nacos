@@ -53,7 +53,9 @@ export function LeadershipPage() {
                   {termExecutives.map((executive) => (
                     <Link className="executive-card" to={`/leadership/${executive.id}`} key={executive.id}>
                       <div className="executive-photo">
-                        <span className="executive-photo-placeholder" aria-hidden="true">{executive.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</span>
+                        {executive.photo
+                          ? <img src={executive.photo} alt={executive.name} />
+                          : <span className="executive-photo-placeholder" aria-hidden="true">{executive.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</span>}
                       </div>
                       <div className="executive-card-body">
                         <h3>{executive.name}</h3>

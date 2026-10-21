@@ -31,7 +31,11 @@ export function ExecutiveProfilePage() {
         <div className="content-width">
           <Link className="back-link" to="/leadership"><Icon name="back" /> Back to leadership archive</Link>
           <div className="profile-layout">
-            <div className="profile-photo profile-photo-placeholder" aria-hidden="true">{executive.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</div>
+            <div className={`profile-photo${executive.photo ? '' : ' profile-photo-placeholder'}`}>
+              {executive.photo
+                ? <img src={executive.photo} alt={executive.name} />
+                : <span aria-hidden="true">{executive.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</span>}
+            </div>
             <div className="profile-copy">
               <span className="eyebrow">{term?.label ?? executive.term}</span>
               <h2>{executive.name}</h2>

@@ -24,6 +24,7 @@ This folder contains the shared backend configuration and versioned SQL migratio
 - `leadership_terms`, `executives`, and `media_items` — publishable archive records.
 - `audit_log` — actor, entity, action and changed field names; it does not store old/new field values.
 - `20261021000100_admin_management.sql` — permission-checked removal of applications and safely removable approved chapters, with audit events retained.
+- `20261021000300_executive_photos.sql` — allows leadership managers to upload executive photos and lets the public site read photos only for published executive profiles.
 
 Public users receive read access only to published records. Application submission consumes a random one-time invitation token and requires the application email to match the invited contact. Duplicate applications for one institution are blocked while an application is active. Chapter data is copied into the public directory only by the approval function.
 

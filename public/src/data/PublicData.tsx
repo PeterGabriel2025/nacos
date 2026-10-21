@@ -53,7 +53,7 @@ export function PublicDataProvider({ children }: { children: ReactNode }) {
           .order('state')
           .order('name'),
         client.from('executives')
-          .select('id, full_name, position, institution, state, term_id, biography')
+          .select('id, full_name, position, institution, state, term_id, photograph_path, biography')
           .eq('is_published', true)
           .order('display_order'),
         client.from('leadership_terms')
@@ -102,24 +102,41 @@ export function PublicDataProvider({ children }: { children: ReactNode }) {
           })
 
       const publishedTerms = new Set((termResult.data ?? []).map((term) => term.id))
-      setExecutives(executiveResult.error
-        ? { records: [], loading: false, error: executiveResult.error.message }
-        : {
-            records: (executiveResult.data ?? [])
-              .filter((row) => publishedTerms.has(row.term_id))
-              .map((row) => ({
+      if (executiveResult.error) {
+        setExecutives({ records: [], loading: false, error: executiveResult.error.message })
+      } else {
+        const mappedExecutives = await Promise.all((executiveResult.data ?? [])
+          .filter((row) => publishedTerms.has(row.term_id))
+          .map(async (row) => {
+            let photo: string | null = null
+            let error = ''
+            if (row.photograph_path) {
+              const { data, error: photoError } = await client.storage
+                .from('nacos-south-east')
+                .createSignedUrl(row.photograph_path, 3600)
+              if (photoError) error = `Could not load photo for ${row.full_name}: ${photoError.message}`
+              else photo = data.signedUrl
+            }
+            return {
+              record: {
                 id: row.id,
                 name: row.full_name,
                 position: row.position,
                 institution: row.institution,
                 state: row.state,
                 term: row.term_id,
-                photo: null,
+                photo,
                 bio: row.biography ?? '',
-              })),
-            loading: false,
-            error: termResult.error?.message ?? '',
-          })
+              },
+              error,
+            }
+          }))
+        setExecutives({
+          records: mappedExecutives.map((item) => item.record),
+          loading: false,
+          error: mappedExecutives.find((item) => item.error)?.error ?? '',
+        })
+      }
 
       if (mediaResult.error) {
         setMediaItems({ records: [], loading: false, error: mediaResult.error.message })

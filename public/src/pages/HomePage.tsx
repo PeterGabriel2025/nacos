@@ -93,7 +93,11 @@ export function HomePage() {
               <div className="card-grid">
                 {featuredExecutives.map((executive) => (
                   <Link className="executive-card" key={executive.id} to={`/leadership/${executive.id}`}>
-                    <div className="executive-photo executive-photo-placeholder" aria-hidden="true">{executive.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</div>
+                    <div className="executive-photo">
+                      {executive.photo
+                        ? <img src={executive.photo} alt={executive.name} />
+                        : <span className="executive-photo-placeholder" aria-hidden="true">{executive.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</span>}
+                    </div>
                     <div className="executive-card-body">
                       <h3>{executive.name}</h3>
                       <div className="executive-position">{executive.position}</div>
