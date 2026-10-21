@@ -4,7 +4,7 @@ This folder contains the shared backend configuration and versioned SQL migratio
 
 ## Current status
 
-- The linked development database was up to date before the new storage migration; `20261005000100_storage_access.sql` is local and must be reviewed/applied before using the updated upload UI. No real chapter or executive data is seeded.
+- The linked development database was up to date before the storage and admin-management migrations; review and apply pending migrations before using their updated upload or application-removal features. No real chapter or executive data is seeded.
 - No project URL, API key, database password, or service-role key is stored here.
 - The registration validator is included in the migrations and is applied to the linked development database.
 - The admin portal has Supabase sign-in and server-validated subadmin email invitations. Chapter invitations, application review, chapter edits, leadership records, and media metadata use Supabase.
@@ -23,6 +23,7 @@ This folder contains the shared backend configuration and versioned SQL migratio
 - `profiles` — roles and explicit permissions associated with Supabase Auth users.
 - `leadership_terms`, `executives`, and `media_items` — publishable archive records.
 - `audit_log` — actor, entity, action and changed field names; it does not store old/new field values.
+- `20261021000100_admin_management.sql` — permission-checked removal of applications and safely removable approved chapters, with audit events retained.
 
 Public users receive read access only to published records. Application submission consumes a random one-time invitation token and requires the application email to match the invited contact. Duplicate applications for one institution are blocked while an application is active. Chapter data is copied into the public directory only by the approval function.
 

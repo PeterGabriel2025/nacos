@@ -121,6 +121,10 @@
 .empty-state{display:grid;justify-items:center;gap:5px;padding:45px 15px;color:#87928a;font-size:10px}
 .empty-state strong{color:#435148;font:700 13px 'Manrope',sans-serif}
 .term-tag,.category-tag{display:inline-flex;padding:5px 7px;border-radius:4px;color:#52705b;background:#f0f6f1;font-size:8px;font-weight:700}
+.term-list{display:flex;flex-wrap:wrap;gap:8px;padding:16px}
+.term-list .term-tag{align-items:center;gap:8px}
+.term-list .term-tag small{color:#7d8a80;font-size:8px;font-weight:600}
+.leadership-executives{margin-top:16px}
 .person-avatar{width:29px;height:29px;border-radius:50%;font-size:8px}
 .media-notice{margin:15px 17px;padding:11px 12px;border:1px solid #f0e4c6;border-radius:6px;color:#806a36;background:#fffaf0;font-size:9px;line-height:1.55}
 .media-notice strong{margin-right:4px;color:#71591d}

@@ -42,6 +42,10 @@ After Netlify assigns the admin site URL, add that origin and its `/set-password
 
 The general admin can update a subadmin's permissions or deactivate/reactivate their profile from Team & access. Deactivation blocks subsequent permission-checked database operations; it does not delete the account or its audit history.
 
+Admins with `leadership.manage` can add leadership terms in Leadership before adding executive profiles. Admins with `applications.review` can permanently remove an application, including an approved chapter. Removal preserves audit events and revokes/detaches other chapter invitations; it is blocked when representative accounts or other applications are still linked to the chapter.
+
+Apply the new `20261021000100_admin_management.sql` Supabase migration before using application removal. New terms and executive profiles can be published from their respective forms; unpublished records stay hidden from the public site.
+
 Chapter invitations create a one-time private link; email delivery is not configured. Share invitation links only with contacts you have verified.
 
 Apply `20261005000100_storage_access.sql` after creating the `nacos-south-east` (images) and `nacos-docs` (PDFs) buckets. It sets both private, configures MIME/size limits and policies: image uploads are limited to JPEG/PNG/WebP up to 5 MB, documents to PDF up to 10 MB, and uploads require `media.manage`. Published image records are served with one-hour signed URLs; PDFs stay private and are available only to media managers through ten-minute signed links. Run the upload UI only against the database where the migration has been applied; use the access tests in `../supabase/README.md` before uploading real content.

@@ -29,6 +29,7 @@ type Executive = {
   term: string
   termId: string
   state: string
+  is_published: boolean
 }
 type Media = {
   id: string
@@ -81,7 +82,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-type LeadershipTerm = { id: string; title: string; start_year: number; end_year: number }
+type LeadershipTerm = { id: string; title: string; start_year: number; end_year: number; is_published: boolean }
 
 type InvitationResult = { invitation_id: string; invite_token: string; expires_at: string }
 
@@ -152,10 +153,10 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
           ? client.from('chapter_applications').select('*').order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
         hasPermission('leadership.manage')
-          ? client.from('leadership_terms').select('id, title, start_year, end_year').order('start_year', { ascending: false })
+          ? client.from('leadership_terms').select('id, title, start_year, end_year, is_published').order('start_year', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
         hasPermission('leadership.manage')
-          ? client.from('executives').select('id, full_name, position, institution, state, term_id, leadership_terms(title, start_year, end_year)').order('display_order')
+          ? client.from('executives').select('id, full_name, position, institution, state, term_id, is_published, leadership_terms(title, start_year, end_year)').order('display_order')
           : Promise.resolve({ data: [], error: null }),
         hasPermission('media.manage')
           ? client.from('media_items').select('id, title, category, year, file_path, storage_bucket, mime_type, is_published').order('year', { ascending: false })
@@ -206,6 +207,7 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
           term: term?.title ?? `${term?.start_year ?? ''} — ${term?.end_year ?? ''}`,
           termId: row.term_id,
           state: row.state,
+          is_published: row.is_published,
         }
       }))
       setMedia((mediaResult.data ?? []) as Media[])
@@ -301,6 +303,23 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
     }
   }
 
+  const deleteApplication = async (application: Chapter) => {
+    const confirmation = `Permanently delete the ${application.status.toLowerCase()} application for ${application.institution}?${application.status === 'Approved' ? ' Its approved chapter will also be deleted from the public site.' : ''} This cannot be undone.`
+    if (!window.confirm(confirmation)) return
+
+    try {
+      if (!hasPermission('applications.review')) return
+      const { error } = await client.rpc('delete_chapter_application', {
+        target_application_id: application.id,
+      })
+      if (error) throw new Error(error.message)
+      notify('Application and associated chapter removed.')
+      await loadRecords()
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Application could not be removed.')
+    }
+  }
+
   const openChapterForm = (chapter?: Chapter) => {
     const items: FormItem[] = [
       { label: 'Chapter name', key: 'name' },
@@ -340,19 +359,28 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
   }
 
   const openExecutiveForm = (executive?: Executive) => {
+    const executiveTerm = executive ? terms.find((term) => term.id === executive.termId) : undefined
     const items: FormItem[] = [
       { label: 'Full name', key: 'name' },
       { label: 'Position', key: 'position' },
       { label: 'Institution', key: 'institution' },
-      { label: 'Leadership term', key: 'term', options: terms.map((term) => term.title), required: true },
+      { label: 'Leadership term', key: 'term', options: terms.map((term) => `${term.title} (${term.start_year}–${term.end_year})`), required: true },
       { label: 'State', key: 'state', options: ['Abia', 'Anambra', 'Ebonyi', 'Enugu', 'Imo'] },
+      { label: 'Publish profile on public site', key: 'isPublished', type: 'checkbox', required: false },
     ]
     setModal({
       title: executive ? 'Edit executive profile' : 'Add executive profile',
       items,
-      initial: executive ? { ...executive } : {},
+      initial: executive ? {
+        name: executive.name,
+        position: executive.position,
+        institution: executive.institution,
+        term: executiveTerm ? `${executiveTerm.title} (${executiveTerm.start_year}–${executiveTerm.end_year})` : '',
+        state: executive.state,
+        isPublished: String(executive.is_published),
+      } : { isPublished: 'false' },
       onSave: async (values) => {
-        const term = terms.find((item) => item.title === values.term)
+        const term = terms.find((item) => `${item.title} (${item.start_year}–${item.end_year})` === values.term)
         if (!term) throw new Error('Select a valid leadership term.')
         const record = {
           full_name: values.name,
@@ -360,12 +388,43 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
           institution: values.institution,
           term_id: term.id,
           state: values.state,
+          is_published: values.isPublished === 'true',
         }
         const result = executive
           ? await client.from('executives').update(record).eq('id', executive.id)
           : await client.from('executives').insert(record)
         if (result.error) throw new Error(result.error.message)
         notify('Executive record saved to Supabase.')
+        await loadRecords()
+      },
+    })
+  }
+
+  const openLeadershipTermForm = () => {
+    setModal({
+      title: 'Add leadership term',
+      items: [
+        { label: 'Term title', key: 'title' },
+        { label: 'Start year', key: 'startYear', type: 'number' },
+        { label: 'End year', key: 'endYear', type: 'number' },
+        { label: 'Publish term on public site', key: 'isPublished', type: 'checkbox', required: false },
+      ],
+      onSave: async (values) => {
+        const title = values.title.trim()
+        if (!title || title.length > 160) throw new Error('Enter a term title of 1 to 160 characters.')
+        const startYear = Number(values.startYear)
+        const endYear = Number(values.endYear)
+        if (!Number.isInteger(startYear) || !Number.isInteger(endYear) || startYear < 1900 || startYear > 2100 || endYear < startYear || endYear > 2101) {
+          throw new Error('Enter a valid term year range.')
+        }
+        const { error } = await client.from('leadership_terms').insert({
+          title,
+          start_year: startYear,
+          end_year: endYear,
+          is_published: values.isPublished === 'true',
+        })
+        if (error) throw new Error(error.message)
+        notify('Leadership term added.')
         await loadRecords()
       },
     })
@@ -558,11 +617,12 @@ function AdminWorkspace({ client, profile, user, signOut }: AuthenticatedAdmin) 
               status={applicationFilter}
               setStatus={setApplicationFilter}
               updateStatus={updateStatus}
+              removeApplication={active === 'Applications' ? deleteApplication : undefined}
               editChapter={openChapterForm}
               canManage={hasPermission(active === 'Applications' ? 'applications.review' : 'chapters.manage')}
             />
           )}
-          {active === 'Leadership' && <LeadershipManagement executives={executives} add={() => openExecutiveForm()} edit={openExecutiveForm} canManage={hasPermission('leadership.manage')} />}
+          {active === 'Leadership' && <LeadershipManagement executives={executives} terms={terms} add={() => openExecutiveForm()} addTerm={openLeadershipTermForm} edit={openExecutiveForm} canManage={hasPermission('leadership.manage')} />}
           {active === 'Media archive' && <MediaManagement client={client} media={media} add={() => openMediaForm()} edit={openMediaForm} remove={(id) => { void deleteMedia(id) }} canManage={hasPermission('media.manage')} />}
           {active === 'Invitations' && hasPermission('invitations.manage') && <Invitations chapters={chapters} onCreate={createChapterInvite} />}
           {active === 'Team & access' && <TeamAccess
@@ -635,7 +695,7 @@ function Overview({ chapters, applications, executives, media, pendingCount, set
   )
 }
 
-function ChapterManagement({ mode, chapters, query, setQuery, status, setStatus, updateStatus, editChapter, canManage }: {
+function ChapterManagement({ mode, chapters, query, setQuery, status, setStatus, updateStatus, removeApplication, editChapter, canManage }: {
   mode: 'Applications' | 'Chapters'
   chapters: Chapter[]
   query: string
@@ -643,6 +703,7 @@ function ChapterManagement({ mode, chapters, query, setQuery, status, setStatus,
   status: 'All submissions' | Status
   setStatus: (value: 'All submissions' | Status) => void
   updateStatus: (id: string, status: Status) => void
+  removeApplication?: (application: Chapter) => void
   editChapter: (chapter: Chapter) => void
   canManage: boolean
 }) {
@@ -656,17 +717,18 @@ function ChapterManagement({ mode, chapters, query, setQuery, status, setStatus,
       </div>
       <section className="panel table-panel">
         <div className="panel-heading"><div><h2>{mode === 'Applications' ? 'Submitted applications' : 'Published chapters'}</h2><p>{chapters.length} records from Supabase</p></div><button className="icon-button" aria-label="Refresh records" onClick={() => window.location.reload()}>↻</button></div>
-        {chapters.length ? <ChapterTable chapters={chapters} onReview={mode === 'Chapters' ? editChapter : undefined} updateStatus={mode === 'Applications' ? updateStatus : undefined} canManage={canManage} /> : <div className="empty-state"><strong>{mode === 'Applications' ? 'No applications yet' : 'No published chapters yet'}</strong><span>Records from Supabase will appear here when available.</span></div>}
+        {chapters.length ? <ChapterTable chapters={chapters} onReview={mode === 'Chapters' ? editChapter : undefined} updateStatus={mode === 'Applications' ? updateStatus : undefined} removeApplication={mode === 'Applications' ? removeApplication : undefined} canManage={canManage} /> : <div className="empty-state"><strong>{mode === 'Applications' ? 'No applications yet' : 'No published chapters yet'}</strong><span>Records from Supabase will appear here when available.</span></div>}
       </section>
     </>
   )
 }
 
-function ChapterTable({ chapters, compact = false, onReview, updateStatus, canManage = true }: {
+function ChapterTable({ chapters, compact = false, onReview, updateStatus, removeApplication, canManage = true }: {
   chapters: Chapter[]
   compact?: boolean
   onReview?: (chapter: Chapter) => void
   updateStatus?: (id: string, status: Status) => void
+  removeApplication?: (application: Chapter) => void
   canManage?: boolean
 }) {
   return (
@@ -681,9 +743,16 @@ function ChapterTable({ chapters, compact = false, onReview, updateStatus, canMa
             {!compact && <td>{chapter.submitted}</td>}
             <td><StatusPill status={chapter.status} /></td>
             <td>
-              {chapter.status === 'Pending review' && updateStatus && canManage
-                ? <div className="row-actions"><button className="approve-button" onClick={() => { void updateStatus(chapter.id, 'Approved') }}>Approve</button><button className="reject-button" onClick={() => { void updateStatus(chapter.id, 'Pending review') }}>Start review</button></div>
-                : onReview && canManage ? <button className="icon-button" aria-label={`Edit ${chapter.name}`} onClick={() => onReview(chapter)}>•••</button> : <span className="dash">—</span>}
+              {canManage && (
+                <div className="row-actions">
+                  {chapter.status === 'Pending review' && updateStatus && <>
+                    <button className="approve-button" onClick={() => { void updateStatus(chapter.id, 'Approved') }}>Approve</button>
+                    <button className="reject-button" onClick={() => { void updateStatus(chapter.id, 'Pending review') }}>Start review</button>
+                  </>}
+                  {onReview && <button className="icon-button" aria-label={`Edit ${chapter.name}`} onClick={() => onReview(chapter)}>•••</button>}
+                  {removeApplication && <button className="reject-button" onClick={() => removeApplication(chapter)}>Remove</button>}
+                </div>
+              )}
             </td>
           </tr>
         ))}</tbody>
@@ -692,14 +761,23 @@ function ChapterTable({ chapters, compact = false, onReview, updateStatus, canMa
   )
 }
 
-function LeadershipManagement({ executives, add, edit, canManage }: { executives: Executive[]; add: () => void; edit: (item: Executive) => void; canManage: boolean }) {
+function LeadershipManagement({ executives, terms, add, addTerm, edit, canManage }: { executives: Executive[]; terms: LeadershipTerm[]; add: () => void; addTerm: () => void; edit: (item: Executive) => void; canManage: boolean }) {
   return (
-    <section className="panel table-panel">
-      <div className="panel-heading"><div><h2>Executive profiles</h2><p>Profiles grouped by zonal leadership term</p></div>{canManage && <button className="button primary small" onClick={add}>＋ Add executive</button>}</div>
-      <div className="table-scroll"><table className="data-table"><thead><tr><th>EXECUTIVE</th><th>POSITION</th><th>INSTITUTION</th><th>TERM</th><th>STATE</th><th /></tr></thead><tbody>
-        {executives.map((item) => <tr key={item.id}><td><div className="chapter-cell"><span className="person-avatar">{item.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span><strong>{item.name}</strong></div></td><td>{item.position}</td><td>{item.institution}</td><td><span className="term-tag">{item.term}</span></td><td>{item.state}</td><td>{canManage && <button className="icon-button" onClick={() => edit(item)} aria-label={`Edit ${item.name}`}>•••</button>}</td></tr>)}
-      </tbody></table></div>
-    </section>
+    <>
+      <section className="panel table-panel">
+        <div className="panel-heading"><div><h2>Leadership terms</h2><p>{terms.length} terms available for executive profiles</p></div>{canManage && <button className="button secondary small" onClick={addTerm}>＋ Add term</button>}</div>
+        {terms.length
+          ? <div className="term-list">{terms.map((term) => <span className="term-tag" key={term.id}>{term.title} · {term.start_year}–{term.end_year}<small>{term.is_published ? 'Published' : 'Unpublished'}</small></span>)}</div>
+          : <div className="empty-state"><strong>No leadership terms yet</strong><span>Add a term before creating executive profiles.</span></div>}
+      </section>
+      <section className="panel table-panel leadership-executives">
+        <div className="panel-heading"><div><h2>Executive profiles</h2><p>Profiles grouped by zonal leadership term</p></div>{canManage && <button className="button primary small" onClick={add} disabled={!terms.length}>＋ Add executive</button>}</div>
+        <div className="table-scroll"><table className="data-table"><thead><tr><th>EXECUTIVE</th><th>POSITION</th><th>INSTITUTION</th><th>TERM</th><th>STATE</th><th /></tr></thead><tbody>
+          {executives.map((item) => <tr key={item.id}><td><div className="chapter-cell"><span className="person-avatar">{item.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span><strong>{item.name}</strong></div></td><td>{item.position}</td><td>{item.institution}</td><td><span className="term-tag">{item.term}</span></td><td>{item.state}</td><td>{canManage && <button className="icon-button" onClick={() => edit(item)} aria-label={`Edit ${item.name}`}>•••</button>}</td></tr>)}
+        </tbody></table></div>
+        {!executives.length && <div className="empty-state"><strong>No executive profiles yet</strong><span>Add an executive profile and assign it to a leadership term.</span></div>}
+      </section>
+    </>
   )
 }
 
@@ -1046,7 +1124,7 @@ function FormModal({ config, close }: {
               )}
             </label>
           ))}
-            <p className="file-policy-note">Images: JPEG, PNG, or WebP up to 5 MB. Documents: PDF up to 10 MB, kept private. Publishing makes non-document items available to public visitors.</p>
+            {config.items.some((item) => item.type === 'file') && <p className="file-policy-note">Images: JPEG, PNG, or WebP up to 5 MB. Documents: PDF up to 10 MB, kept private. Publishing makes non-document items available to public visitors.</p>}
           </div>
           {error && <p className="team-form-error modal-error" role="alert">{error}</p>}
           <div className="modal-actions"><button className="button secondary" type="button" onClick={close} disabled={busy}>Cancel</button><button className="button primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save to Supabase'}</button></div>
