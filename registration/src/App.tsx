@@ -56,7 +56,6 @@ function InvitationGate() {
             <small>Chapter registration portal</small>
           </span>
         </a>
-        <span className="portal-tag">Private access</span>
       </header>
 
       <main className="gate-main">
@@ -68,10 +67,12 @@ function InvitationGate() {
             NACOS South East sends a private invitation to a verified chapter representative.
             {invitationToken ? ' Your link must be valid, unexpired, and unused before the registration form opens.' : ' The invitation link is checked before registration access is granted.'}
           </p>
-          <div className="gate-notice" role="status">
-            <strong>{checking ? 'Verifying secure invitation…' : error || (invitationToken && !client ? 'Registration backend configuration is missing.' : 'A valid single-use invitation is required.')}</strong>
-            <span>{error ? 'Ask the NACOS South East administrator to verify your access or issue a new link.' : 'Invitation access is verified directly against Supabase.'}</span>
-          </div>
+          {invitationToken && !checking && (error || !client) && (
+            <div className="gate-notice" role="alert">
+              <strong>{error ? 'This invitation could not be verified.' : 'Registration is temporarily unavailable.'}</strong>
+              <span>Ask the NACOS South East administrator to verify your access or issue a new link.</span>
+            </div>
+          )}
           <div className="gate-help">
             If you are a chapter representative and need access, contact the NACOS South East
             zonal team at <a href="mailto:hello@nacosoutheast.org.ng">hello@nacosoutheast.org.ng</a>.

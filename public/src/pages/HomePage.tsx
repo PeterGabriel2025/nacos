@@ -6,7 +6,7 @@ import { SectionHeading } from '../components/SectionHeading'
 import { usePublicData } from '../data/publicDataContext'
 
 const registrationPortalUrl = import.meta.env.VITE_REGISTRATION_PORTAL_URL
-  || (import.meta.env.DEV ? 'http://localhost:5174/' : 'https://register.nacosoutheast.org.ng/')
+  || (import.meta.env.DEV ? 'http://localhost:5174/' : 'https://nacos-reg.netlify.app/')
 
 export function HomePage() {
   const data = usePublicData()

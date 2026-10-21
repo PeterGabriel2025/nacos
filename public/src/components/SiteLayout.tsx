@@ -4,7 +4,7 @@ import nacosSeal from '../assets/nacos-seal.png'
 import { Icon } from './Icon'
 
 const registrationPortalUrl = import.meta.env.VITE_REGISTRATION_PORTAL_URL
-  || (import.meta.env.DEV ? 'http://localhost:5174/' : 'https://register.nacosoutheast.org.ng/')
+  || (import.meta.env.DEV ? 'http://localhost:5174/' : 'https://nacos-reg.netlify.app/')
 
 const navItems = [
   { to: '/', label: 'Overview', end: true },

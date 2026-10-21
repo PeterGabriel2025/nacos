@@ -15,15 +15,15 @@ Copy `.env.example` to `.env.local`, set the Supabase project URL and publishabl
 
 The public app requests only approved, published chapters, published leadership terms/executives, and published non-document media metadata. It never requests chapter contacts, applications, profiles, invitation tokens, PDFs, or audit records. Published archive photos are loaded using one-hour signed links from the private media bucket.
 
-## Deploy to Vercel
+## Deploy to Netlify
 
-The root `vercel.json` routes this Vite service to the main public host, `www.nacosoutheast.org.ng`. Admin is available at `/admin/` on that host, while registration invitations use the separate `register.nacosoutheast.org.ng` host.
+Create a Netlify site for this repository with **Base directory** `public`, **Build command** `npm run build`, and **Publish directory** `dist`.
 
-Set these Vercel environment variables for the environments you deploy:
+Set these Netlify environment variables:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_REGISTRATION_PORTAL_URL` — deployed registration app URL
+- `VITE_REGISTRATION_PORTAL_URL` — `https://nacos-reg.netlify.app/`
 
 ## Validate
 
