@@ -109,32 +109,28 @@ export function PublicDataProvider({ children }: { children: ReactNode }) {
           .filter((row) => publishedTerms.has(row.term_id))
           .map(async (row) => {
             let photo: string | null = null
-            let error = ''
             if (row.photograph_path) {
               const { data, error: photoError } = await client.storage
                 .from('nacos-south-east')
                 .createSignedUrl(row.photograph_path, 3600)
-              if (photoError) error = `Could not load photo for ${row.full_name}: ${photoError.message}`
+              if (photoError) console.warn(`Could not load photo for ${row.full_name}; showing initials instead.`, photoError)
               else photo = data.signedUrl
             }
             return {
-              record: {
-                id: row.id,
-                name: row.full_name,
-                position: row.position,
-                institution: row.institution,
-                state: row.state,
-                term: row.term_id,
-                photo,
-                bio: row.biography ?? '',
-              },
-              error,
+              id: row.id,
+              name: row.full_name,
+              position: row.position,
+              institution: row.institution,
+              state: row.state,
+              term: row.term_id,
+              photo,
+              bio: row.biography ?? '',
             }
           }))
         setExecutives({
-          records: mappedExecutives.map((item) => item.record),
+          records: mappedExecutives,
           loading: false,
-          error: mappedExecutives.find((item) => item.error)?.error ?? '',
+          error: '',
         })
       }
 
