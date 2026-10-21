@@ -1058,6 +1058,10 @@ textarea.control {
   height: 100%;
 }
 
+.executive-photo img {
+  object-position: center top;
+}
+
 .profile-photo-placeholder {
   font-size: 64px;
 }
