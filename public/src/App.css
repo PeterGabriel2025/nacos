@@ -1109,6 +1109,10 @@ textarea.control {
   box-shadow: var(--shadow);
 }
 
+.profile-photo img {
+  object-position: center top;
+}
+
 .profile-copy h2 {
   margin: 8px 0 5px;
   color: var(--ink);
