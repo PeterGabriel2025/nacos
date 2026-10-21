@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/admin/',
+  base: '/',
   plugins: [react()],
   server: {
     host: '127.0.0.1',

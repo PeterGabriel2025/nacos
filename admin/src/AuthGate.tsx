@@ -93,10 +93,10 @@ export function AuthGate({ children }: AuthGateProps) {
   if (!client) return <AuthMessage />
   if (!sessionReady || (user !== null && !profileReady)) return <AuthMessage message="Checking your secure admin session…" />
 
-  const isPasswordSetup = pathname === '/admin/set-password'
+  const isPasswordSetup = pathname === '/set-password'
   if (isPasswordSetup) {
     return user
-      ? <SetPassword onComplete={() => { window.history.replaceState({}, '', '/admin/'); setPathname('/admin/') }} />
+      ? <SetPassword onComplete={() => { window.history.replaceState({}, '', '/'); setPathname('/') }} />
       : <AuthMessage message="This invitation link is invalid, expired, or already used. Ask the general admin to send a new invitation." />
   }
 
@@ -164,7 +164,7 @@ function SignIn() {
     try {
       const result = mode === 'sign-in'
         ? await client.auth.signInWithPassword({ email: email.trim(), password })
-        : await client.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/admin/set-password` })
+        : await client.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/set-password` })
       setMessageError(Boolean(result.error))
       setMessage(result.error ? result.error.message : mode === 'reset' ? 'If an account exists for that email, a password reset link has been sent.' : '')
     } catch (error) {
